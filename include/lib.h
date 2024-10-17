@@ -8,7 +8,33 @@
 
 #define MAX_PACKET_LEN 1600
 #define ROUTER_NUM_INTERFACES 3
+#define ETHERTYPE_IP 0x0800
+#define MSB 0
 
+/* Route table entry */
+struct route_table_entry {
+	uint32_t prefix;
+	uint32_t next_hop;
+	uint32_t mask;
+	int interface;
+} __attribute__((packed));
+
+/* ARP table entry when skipping the ARP exercise */
+struct arp_table_entry {
+    uint32_t ip;
+    uint8_t mac[6];
+};
+
+//  Trie data structures
+struct Node {
+	struct route_table_entry *route;
+	int isLeaf;
+	struct Node *children[2];
+};
+
+struct Trie {
+	struct Node *root;
+};
 
 /*
  * @brief Sends a packet on a specific interface.
@@ -31,20 +57,6 @@ int send_to_link(int interface, char *frame_data, size_t length);
  * Returns: the interface it has been received from.
  */
 int recv_from_any_link(char *frame_data, size_t *length);
-
-/* Route table entry */
-struct route_table_entry {
-	uint32_t prefix;
-	uint32_t next_hop;
-	uint32_t mask;
-	int interface;
-} __attribute__((packed));
-
-/* ARP table entry when skipping the ARP exercise */
-struct arp_table_entry {
-    uint32_t ip;
-    uint8_t mac[6];
-};
 
 char *get_interface_ip(int interface);
 
@@ -97,6 +109,24 @@ int read_rtable(const char *path, struct route_table_entry *rtable);
 int parse_arp_table(char *path, struct arp_table_entry *arp_table);
 
 void init(int argc, char *argv[]);
+
+//  Trie functions
+
+//  Node creation func
+struct Node* createNode();
+
+//  Insertion func
+void insertPath(struct Trie *trie, uint32_t ip, struct route_table_entry *crt_route,
+				uint32_t mask);
+
+//  Create trie
+struct Trie *createTrie(struct route_table_entry *rtable, int rtable_len);
+
+//  Destroy node
+void destroyNode(struct Node **node);
+
+//  Destroy trie
+void destroyTrie(struct Trie **trie);
 
 #define DIE(condition, message, ...) \
 	do { \

@@ -246,3 +246,82 @@ int parse_arp_table(char *path, struct arp_table_entry *arp_table)
 	fprintf(stderr, "Done parsing ARP table.\n");
 	return i;
 }
+
+//  Trie functions
+
+//  Node creation func
+struct Node* createNode() {
+    struct Node* newNode = malloc(sizeof(struct Node));
+	DIE(newNode == NULL, "Can't create new node");
+	
+	newNode->route = NULL;
+    newNode->isLeaf = 0;
+
+    for (int i = 0; i < 2; i++) {
+        newNode->children[i] = NULL;
+    }
+	
+    return newNode;
+}
+
+//  Insertion func
+void insertPath(struct Trie *trie, uint32_t ip, struct route_table_entry *crt_route,
+				uint32_t mask) {
+	struct Node *iter = trie->root;
+
+	//  Begin adding bits starting from the MSB
+	for (int bit_number = MSB; mask != 0; bit_number++) {
+		//  Select bit
+		int bit = (ip >> bit_number) & 1;
+		
+		//  Add bit only if the path is new, else continue
+		if (iter->children[bit] == NULL) {
+			iter->children[bit] = createNode();
+		}
+
+		iter = iter->children[bit];
+
+		//  Shift mask for how many bits we add to the trie
+		//  aka how specific our address will be
+		mask = mask >> 1;
+	}
+
+	//  Finish by marking last node as leaf
+	//  We add the route for easier access in LPM
+	if ((iter->isLeaf == 1 && iter->route->mask < crt_route->mask)
+			|| iter->isLeaf == 0) {
+		iter->isLeaf = 1;
+		iter->route = crt_route;
+	}
+}
+
+//  Create trie
+struct Trie* createTrie(struct route_table_entry *rtable, int rtable_len) {
+	//  Init trie
+	struct Trie *newTrie = malloc(sizeof(struct Trie));
+	DIE(newTrie == NULL, "trie");
+
+	newTrie->root = createNode();
+
+	//  Add all IPs from routing table
+	for(int i = 0; i < rtable_len; i++){
+		insertPath(newTrie, rtable[i].prefix, &rtable[i], rtable[i].mask);
+	}
+
+	return newTrie;
+}
+
+//  Destroy trie functions
+void destroyNode(struct Node **node) {
+	for (int i = 0; i < 2; i++) {
+		if ((*node)->children[i] != NULL) {
+			destroyNode(&((*node)->children[i]));
+		}
+	}
+	free(*node);
+}
+
+void destroyTrie(struct Trie **trie) {
+	destroyNode(&((*trie)->root));
+	free(*trie);
+}

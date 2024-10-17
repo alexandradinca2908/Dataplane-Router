@@ -1,0 +1,11 @@
+Homework 1 - Dataplane router
+
+Task 1: Routing process
+    For the first task I used the implementation given in Lab 4, combining both pieces of code and the given theory. The way things work differently is that the router is given a routing table upon start-up in argv[1] (instead of having a file hardcoded in the source code), which it uses to deliver given packets. Apart from that, the algorithm is straight-forward:
+        wait to receive a packet -> check if it's IPv4 -> if it is, verify checksum and ttl -> if they are valid, find next best hop -> if there is a next hop, update ttl, checksum, mac addresses and send the new buf on the route we previously found.
+
+Task 2: Efficient LPM
+    For the second task, I implemented a trie for an efficient search of the next hop. This trie is a binary tree where every node represents either 0 or 1 bit and a leaf contains a pointer to the route with this prefix.
+    Each IP from the routing table is added into the trie based on how long its mask is (for example, for IP 192.168.5.2 and mask 255.255.0.0, the path in trie follows the route of 192.168.0.0). After that, the IP we are looking for is searched by going down the trie bit by bit, until a leaf is found. If we find a leaf, it means
+        ip & mask == prefix
+    and we can return and use the pointer to the route, just like the linear search.
